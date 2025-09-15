@@ -50,6 +50,13 @@ def get_azure_access_token():
         
         if az_command:
             try:
+                # Add Azure CLI directory to PATH for current process
+                import os
+                az_dir = os.path.dirname(az_command)
+                current_path = os.environ.get('PATH', '')
+                if az_dir not in current_path:
+                    os.environ['PATH'] = f"{az_dir};{current_path}"
+                
                 result = subprocess.run([az_command, 'account', 'get-access-token', 
                                        '--resource=https://management.azure.com/', 
                                        '--query=accessToken', '--output=tsv'], 
@@ -233,7 +240,7 @@ def main():
                 print("Executing Azure Purchase API calls...")
                 print("=" * 60)
                 
-                results = execute_purchase_api_calls(purchase_payloads, API_VERSION)
+                results = execute_purchase_api_calls(purchase_payloads, API_VERSION, access_token=access_token)
                 
                 # Save results to file
                 results_file = os.path.join(INPUT_DIR, f"purchase_results_{input_file.replace('.csv', '')}.json")

@@ -1,3 +1,3 @@
 ﻿Purchase Trigger;SKU-name;azure region;reservedResourceType;subscription;term;billingPlan;quantity;displayName;appliedScopes;appliedScopeType;InstanceFlexibility;renew
-;standard_A1_v2;germanynorth;VirtualMachines;INSERTSUBSCRIPTIONHERE;P1Y;Monthly;1;multiLineReservation1;;Shared;On;No
-;standard_A1_v2;eastus;VirtualMachines;INSERTSUBSCRIPTIONHERE;P1Y;Monthly;5;multiLineReservation2;;Shared;On;No
+;standard_A1_v2;germanynorth;VirtualMachines;INSERTSUBSCRIPTIONHERE;P1Y;Monthly;1;SharedScopeReservation;;Shared;On;No
+;standard_A1_v2;eastus;VirtualMachines;INSERTSUBSCRIPTIONHERE;P1Y;Monthly;5;ResourceGroupScopeReservation;/subscriptions/INSERTSUBSCRIPTIONHERE/resourceGroups/INSERTRESOURCEGROUPHERE;Single;On;No

@@ -176,6 +176,44 @@ The input file should contain columns:
 - InstanceFlexibility
 - renew
 
+### Applied Scopes Configuration
+
+Reserved Instances can be scoped in different ways using the `appliedScopeType` and `appliedScopes` columns:
+
+#### 1. Shared Scope (Subscription-wide)
+- **appliedScopeType**: `Shared`
+- **appliedScopes**: Leave empty or use empty string
+- **Description**: Reservation applies to all matching resources in the subscription
+
+```csv
+appliedScopeType,appliedScopes
+Shared,
+```
+
+#### 2. Single Scope (Resource Group-specific)
+- **appliedScopeType**: `Single`
+- **appliedScopes**: Full resource group path
+- **Description**: Reservation applies only to matching resources in the specified resource group
+
+```csv
+appliedScopeType,appliedScopes
+Single,/subscriptions/YOUR-SUBSCRIPTION-ID/resourceGroups/YOUR-RESOURCE-GROUP-NAME
+```
+
+#### Example Resource Group Scoping
+For a reservation scoped to a specific resource group:
+
+```csv
+Purchase Trigger;SKU-name;azure region;reservedResourceType;subscription;term;billingPlan;quantity;displayName;appliedScopes;appliedScopeType;InstanceFlexibility;renew
+;Standard_D2s_v3;eastus;VirtualMachines;YOUR-SUBSCRIPTION-ID;P1Y;Monthly;2;MyVMReservation;/subscriptions/YOUR-SUBSCRIPTION-ID/resourceGroups/YOUR-RESOURCE-GROUP-NAME;Single;On;No
+```
+
+**Important Notes:**
+- Replace `YOUR-SUBSCRIPTION-ID` with your actual Azure subscription ID
+- Replace `YOUR-RESOURCE-GROUP-NAME` with your actual resource group name
+- The resource group must exist in the specified subscription
+- Single scope provides more granular cost allocation and resource targeting
+
 ## Generated CSV Output
 The script generates a CSV file with additional columns:
 - **ReservationOrderID**: Generated UUID for each reservation

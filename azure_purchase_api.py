@@ -20,17 +20,40 @@ from azure.core.pipeline.policies import (
 class AzurePurchaseAPI:
     """Class to handle Azure Reserved Instance purchase API calls"""
     
-    def __init__(self):
-        """Initialize the Azure client with default credentials"""
-        self.credential = DefaultAzureCredential()
+    def __init__(self, access_token=None):
+        """
+        Initialize the Azure client with access token or default credentials
+        
+        Args:
+            access_token: Optional access token string. If provided, uses token-based auth.
+                         If None, falls back to DefaultAzureCredential.
+        """
         self.scope = "https://management.azure.com/.default"
         
-        # Create pipeline with policies
-        policies = [
-            HeadersPolicy({"Content-Type": "application/json"}),
-            BearerTokenCredentialPolicy(self.credential, self.scope),
-            RetryPolicy(retry_total=3, retry_backoff_factor=1.0)
-        ]
+        if access_token:
+            # Use provided access token
+            self.access_token = access_token
+            self.use_token_auth = True
+            
+            # Create pipeline with manual token header
+            policies = [
+                HeadersPolicy({
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {access_token}"
+                }),
+                RetryPolicy(retry_total=3, retry_backoff_factor=1.0)
+            ]
+        else:
+            # Use DefaultAzureCredential
+            self.credential = DefaultAzureCredential()
+            self.use_token_auth = False
+            
+            # Create pipeline with credential policy
+            policies = [
+                HeadersPolicy({"Content-Type": "application/json"}),
+                BearerTokenCredentialPolicy(self.credential, self.scope),
+                RetryPolicy(retry_total=3, retry_backoff_factor=1.0)
+            ]
         
         self.pipeline = Pipeline(
             transport=RequestsTransport(),
@@ -172,18 +195,19 @@ class AzurePurchaseAPI:
             print("-" * 60)
 
 
-def execute_purchase_api_calls(purchase_payloads: List[Dict[str, Any]], api_version: str = "2022-11-01") -> List[Dict[str, Any]]:
+def execute_purchase_api_calls(purchase_payloads: List[Dict[str, Any]], api_version: str = "2022-11-01", access_token: str = None) -> List[Dict[str, Any]]:
     """
     Convenience function to execute purchase API calls
     
     Args:
         purchase_payloads: List of payload dictionaries from generate_api_payloads_with_order_ids
         api_version: Azure API version to use
+        access_token: Optional access token for authentication
         
     Returns:
         List of response dictionaries
     """
-    api_client = AzurePurchaseAPI()
+    api_client = AzurePurchaseAPI(access_token=access_token)
     results = api_client.execute_batch_purchases(purchase_payloads, api_version)
     api_client.print_detailed_results(results)
     return results

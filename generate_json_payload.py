@@ -30,6 +30,16 @@ def generate_api_payloads(file_path, reservation_order_id=None):
     df = read_input_file(file_path)
     payloads = []
     for _, row in df.iterrows():
+        # Handle appliedScopes based on appliedScopeType
+        applied_scopes = None
+        if not pd.isna(row["appliedScopes"]) and row["appliedScopes"] != '':
+            if row["appliedScopeType"].lower() == "single":
+                # For Single scope type, appliedScopes should be an array with one element
+                applied_scopes = [row["appliedScopes"]]
+            else:
+                # For other scope types (like Shared), appliedScopes should be null/None
+                applied_scopes = None
+        
         payload = {
             "sku": {"name": row["SKU-name"]},
             "location": row["azure region"],
@@ -40,7 +50,7 @@ def generate_api_payloads(file_path, reservation_order_id=None):
                 "billingPlan": row["billingPlan"],
                 "quantity": int(row["quantity"]),
                 "displayName": row["displayName"],
-                "appliedScopes": None if pd.isna(row["appliedScopes"]) or row["appliedScopes"] == '' else row["appliedScopes"],
+                "appliedScopes": applied_scopes,
                 "appliedScopeType": row["appliedScopeType"],
                 "reservedResourceProperties": {
                     "instanceFlexibility": row["InstanceFlexibility"]
@@ -91,6 +101,16 @@ def generate_api_payloads_with_order_ids(calculation_results):
             skipped_no_confirmation += 1
             continue
         
+        # Handle appliedScopes based on appliedScopeType
+        applied_scopes = None
+        if not pd.isna(row["appliedScopes"]) and row["appliedScopes"] != '':
+            if row["appliedScopeType"].lower() == "single":
+                # For Single scope type, appliedScopes should be an array with one element
+                applied_scopes = [row["appliedScopes"]]
+            else:
+                # For other scope types (like Shared), appliedScopes should be null/None
+                applied_scopes = None
+        
         payload = {
             "sku": {"name": row["SKU-name"]},
             "location": row["azure region"],
@@ -101,7 +121,7 @@ def generate_api_payloads_with_order_ids(calculation_results):
                 "billingPlan": row["billingPlan"],
                 "quantity": int(row["quantity"]),
                 "displayName": row["displayName"],
-                "appliedScopes": None if pd.isna(row["appliedScopes"]) or row["appliedScopes"] == '' else row["appliedScopes"],
+                "appliedScopes": applied_scopes,
                 "appliedScopeType": row["appliedScopeType"],
                 "reservedResourceProperties": {
                     "instanceFlexibility": row["InstanceFlexibility"]
