@@ -176,6 +176,41 @@ The input file should contain columns:
 - InstanceFlexibility
 - renew
 
+### InstanceFlexibility Parameter Handling
+
+The `InstanceFlexibility` parameter is handled conditionally based on the `reservedResourceType`:
+
+#### VirtualMachines Resources
+- **Required**: `InstanceFlexibility` column must be present and have a value
+- **Values**: Typically `On` or `Off`
+- **JSON Output**: Includes `reservedResourceProperties` with `instanceFlexibility` field
+
+```csv
+reservedResourceType,InstanceFlexibility
+VirtualMachines,On
+```
+
+#### Non-VM Resources (PostgreSQL, CosmosDB, SQL Database, etc.)
+- **Optional**: `InstanceFlexibility` column can be omitted or left empty
+- **Behavior**: If provided, the value is ignored with a warning message
+- **JSON Output**: `reservedResourceProperties` field is completely omitted
+
+```csv
+reservedResourceType,InstanceFlexibility
+PostgreSql,
+CosmosDb,
+```
+
+#### Warning Messages
+When `InstanceFlexibility` values are provided for non-VM resources, you'll see:
+```
+⚠️  Warning: InstanceFlexibility value 'On' will be ignored for reservedResourceType 'PostgreSql' in row 1
+```
+
+#### Supported Resource Types
+- **Requires InstanceFlexibility**: `VirtualMachines`
+- **Ignores InstanceFlexibility**: `PostgreSql`, `CosmosDb`, `SqlDatabase`, `RedisCache`, and other non-VM services
+
 ### Applied Scopes Configuration
 
 Reserved Instances can be scoped in different ways using the `appliedScopeType` and `appliedScopes` columns:

@@ -29,34 +29,79 @@ def generate_api_payloads(file_path, reservation_order_id=None):
     """Generate API payloads from input file with optional reservation order ID"""
     df = read_input_file(file_path)
     payloads = []
-    for _, row in df.iterrows():
+    for index, row in df.iterrows():
+        # Validate required columns exist
+        required_columns = ["appliedScopes", "appliedScopeType"]
+        for col in required_columns:
+            if col not in row:
+                raise ValueError(f"Missing required column: {col} in row {index + 1}")
+        
+        # Get the scope type and validate it
+        if pd.isna(row["appliedScopeType"]):
+            raise ValueError(f"Missing or empty appliedScopeType in row {index + 1}")
+            
+        scope_type = str(row["appliedScopeType"]).strip().lower()
+        if scope_type not in ["single", "shared", "managementgroup"]:
+            raise ValueError(f"Invalid appliedScopeType: '{row['appliedScopeType']}' in row {index + 1}. Must be 'Single', 'Shared', or 'ManagementGroup'")
+        
         # Handle appliedScopes based on appliedScopeType
+        applied_scopes_value = row.get("appliedScopes", "")
+        
+        # Convert NaN to empty string for processing
+        if pd.isna(applied_scopes_value):
+            applied_scopes_value = ""
+        else:
+            applied_scopes_value = str(applied_scopes_value).strip()
+        
         applied_scopes = None
-        if not pd.isna(row["appliedScopes"]) and row["appliedScopes"] != '':
-            if row["appliedScopeType"].lower() == "single":
-                # For Single scope type, appliedScopes should be an array with one element
-                applied_scopes = [row["appliedScopes"]]
-            else:
-                # For other scope types (like Shared), appliedScopes should be null/None
-                applied_scopes = None
+        if scope_type == "single":
+            # For Single scope type, appliedScopes must be provided and should be an array with one element
+            if not applied_scopes_value:
+                raise ValueError(f"appliedScopes is required when appliedScopeType is 'Single' in row {index + 1}. Please provide a subscription or resource group scope.")
+            applied_scopes = [applied_scopes_value]
+        elif scope_type in ["shared", "managementgroup"]:
+            # For Shared or ManagementGroup scope types, appliedScopes should be null/None
+            # But if provided, we'll ignore it with a warning
+            if applied_scopes_value:
+                print(f"Warning: appliedScopes value '{applied_scopes_value}' will be ignored for appliedScopeType '{row['appliedScopeType']}' in row {index + 1}")
+            applied_scopes = None
+
+        # Build reservedResourceProperties based on resource type
+        reserved_resource_properties = {}
+        resource_type = str(row["reservedResourceType"]).strip()
+        
+        # instanceFlexibility is only applicable for VirtualMachines
+        if resource_type.lower() == "virtualmachines":
+            if "InstanceFlexibility" not in row or pd.isna(row["InstanceFlexibility"]):
+                raise ValueError(f"InstanceFlexibility is required when reservedResourceType is 'VirtualMachines' in row {index + 1}")
+            reserved_resource_properties["instanceFlexibility"] = row["InstanceFlexibility"]
+        else:
+            # For non-VM resources, instanceFlexibility parameter is skipped entirely
+            # But if it's provided, we'll show a warning
+            if "InstanceFlexibility" in row and not pd.isna(row["InstanceFlexibility"]) and str(row["InstanceFlexibility"]).strip():
+                print(f"⚠️  Warning: InstanceFlexibility value '{row['InstanceFlexibility']}' will be ignored for reservedResourceType '{resource_type}' in row {index + 1}")
+
+        # Build the properties object
+        properties = {
+            "reservedResourceType": row["reservedResourceType"],
+            "billingScopeId": f"/subscriptions/{row['subscription']}",
+            "term": row["term"],
+            "billingPlan": row["billingPlan"],
+            "quantity": int(row["quantity"]),
+            "displayName": row["displayName"],
+            "appliedScopes": applied_scopes,
+            "appliedScopeType": row["appliedScopeType"],
+            "renew": str(row["renew"]).strip().lower() == "yes"
+        }
+        
+        # Only include reservedResourceProperties if it has content
+        if reserved_resource_properties:
+            properties["reservedResourceProperties"] = reserved_resource_properties
         
         payload = {
             "sku": {"name": row["SKU-name"]},
             "location": row["azure region"],
-            "properties": {
-                "reservedResourceType": row["reservedResourceType"],
-                "billingScopeId": f"/subscriptions/{row['subscription']}",
-                "term": row["term"],
-                "billingPlan": row["billingPlan"],
-                "quantity": int(row["quantity"]),
-                "displayName": row["displayName"],
-                "appliedScopes": applied_scopes,
-                "appliedScopeType": row["appliedScopeType"],
-                "reservedResourceProperties": {
-                    "instanceFlexibility": row["InstanceFlexibility"]
-                },
-                "renew": str(row["renew"]).strip().lower() == "yes"
-            }
+            "properties": properties
         }
         payloads.append({
             'payload': payload,
@@ -110,24 +155,43 @@ def generate_api_payloads_with_order_ids(calculation_results):
             else:
                 # For other scope types (like Shared), appliedScopes should be null/None
                 applied_scopes = None
+
+        # Build reservedResourceProperties based on resource type
+        reserved_resource_properties = {}
+        resource_type = str(row["reservedResourceType"]).strip()
+        
+        # instanceFlexibility is only applicable for VirtualMachines
+        if resource_type.lower() == "virtualmachines":
+            if "InstanceFlexibility" not in row or pd.isna(row["InstanceFlexibility"]):
+                raise ValueError(f"InstanceFlexibility is required when reservedResourceType is 'VirtualMachines'")
+            reserved_resource_properties["instanceFlexibility"] = row["InstanceFlexibility"]
+        else:
+            # For non-VM resources, instanceFlexibility parameter is skipped entirely
+            # But if it's provided, we'll show a warning
+            if "InstanceFlexibility" in row and not pd.isna(row["InstanceFlexibility"]) and str(row["InstanceFlexibility"]).strip():
+                print(f"⚠️  Warning: InstanceFlexibility value '{row['InstanceFlexibility']}' will be ignored for reservedResourceType '{resource_type}'")
+
+        # Build the properties object
+        properties = {
+            "reservedResourceType": row["reservedResourceType"],
+            "billingScopeId": f"/subscriptions/{row['subscription']}",
+            "term": row["term"],
+            "billingPlan": row["billingPlan"],
+            "quantity": int(row["quantity"]),
+            "displayName": row["displayName"],
+            "appliedScopes": applied_scopes,
+            "appliedScopeType": row["appliedScopeType"],
+            "renew": str(row["renew"]).strip().lower() == "yes"
+        }
+        
+        # Only include reservedResourceProperties if it has content
+        if reserved_resource_properties:
+            properties["reservedResourceProperties"] = reserved_resource_properties
         
         payload = {
             "sku": {"name": row["SKU-name"]},
             "location": row["azure region"],
-            "properties": {
-                "reservedResourceType": row["reservedResourceType"],
-                "billingScopeId": f"/subscriptions/{row['subscription']}",
-                "term": row["term"],
-                "billingPlan": row["billingPlan"],
-                "quantity": int(row["quantity"]),
-                "displayName": row["displayName"],
-                "appliedScopes": applied_scopes,
-                "appliedScopeType": row["appliedScopeType"],
-                "reservedResourceProperties": {
-                    "instanceFlexibility": row["InstanceFlexibility"]
-                },
-                "renew": str(row["renew"]).strip().lower() == "yes"
-            }
+            "properties": properties
         }
         payloads.append({
             'payload': payload,

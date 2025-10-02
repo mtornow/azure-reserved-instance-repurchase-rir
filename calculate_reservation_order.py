@@ -23,23 +23,42 @@ def build_calculate_payload(row):
             # For other scope types (like Shared), appliedScopes should be null/None
             applied_scopes = None
     
+    # Build reservedResourceProperties based on resource type
+    reserved_resource_properties = {}
+    resource_type = str(row["reservedResourceType"]).strip()
+    
+    # instanceFlexibility is only applicable for VirtualMachines
+    if resource_type.lower() == "virtualmachines":
+        if "InstanceFlexibility" not in row or pd.isna(row["InstanceFlexibility"]):
+            raise ValueError(f"InstanceFlexibility is required when reservedResourceType is 'VirtualMachines'")
+        reserved_resource_properties["instanceFlexibility"] = row["InstanceFlexibility"]
+    else:
+        # For non-VM resources, instanceFlexibility parameter is skipped entirely
+        # But if it's provided, we'll show a warning
+        if "InstanceFlexibility" in row and not pd.isna(row["InstanceFlexibility"]) and str(row["InstanceFlexibility"]).strip():
+            print(f"⚠️  Warning: InstanceFlexibility value '{row['InstanceFlexibility']}' will be ignored for reservedResourceType '{resource_type}'")
+
+    # Build the properties object
+    properties = {
+        "reservedResourceType": row["reservedResourceType"],
+        "billingScopeId": f"/subscriptions/{row['subscription']}",
+        "term": row["term"],
+        "billingPlan": row["billingPlan"],
+        "quantity": int(row["quantity"]),
+        "displayName": row["displayName"],
+        "appliedScopes": applied_scopes,
+        "appliedScopeType": row["appliedScopeType"]
+        # Note: 'renew' is not included in Calculate API, only in Purchase API
+    }
+    
+    # Only include reservedResourceProperties if it has content
+    if reserved_resource_properties:
+        properties["reservedResourceProperties"] = reserved_resource_properties
+
     payload = {
         "sku": {"name": row["SKU-name"]},
         "location": row["azure region"],
-        "properties": {
-            "reservedResourceType": row["reservedResourceType"],
-            "billingScopeId": f"/subscriptions/{row['subscription']}",
-            "term": row["term"],
-            "billingPlan": row["billingPlan"],
-            "quantity": int(row["quantity"]),
-            "displayName": row["displayName"],
-            "appliedScopes": applied_scopes,
-            "appliedScopeType": row["appliedScopeType"],
-            "reservedResourceProperties": {
-                "instanceFlexibility": row["InstanceFlexibility"]
-            }
-            # Note: 'renew' is not included in Calculate API, only in Purchase API
-        }
+        "properties": properties
     }
     return payload
 
